@@ -1,5 +1,8 @@
 package net.singlex.base;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.asynchttpclient.BoundRequestBuilder;
 import org.asynchttpclient.ListenableFuture;
 import org.asynchttpclient.Response;
 import org.asynchttpclient.cookie.Cookie;
@@ -14,12 +17,14 @@ public class BasicHttpClient extends BasicConfig {
 
     protected static List<Cookie> cookies;
 
-    protected void doLogin(String url, String name, String password)
+    protected void httpPostForLogin(String url, List<Pair<String, String>> formParams)
             throws InterruptedException, ExecutionException, TimeoutException {
-        final ListenableFuture<Response> futureResponse = httpClient.preparePost(url)
-                                                                    .addFormParam("log", name)
-                                                                    .addFormParam("pwd", password)
-                                                                    .execute();
+        BoundRequestBuilder builder = httpClient.preparePost(url);
+        if (CollectionUtils.isNotEmpty(formParams)) {
+            formParams.forEach(p -> builder.addFormParam(p.getLeft(), p.getRight()));
+        }
+        final ListenableFuture<Response> futureResponse = builder.execute();
+
         final Response response = futureResponse.get(10, TimeUnit.SECONDS);
         if (HttpConstants.ResponseStatusCodes.FOUND_302 == response.getStatusCode()) {
             String location = response.getHeaders().get("Location");
@@ -28,7 +33,7 @@ public class BasicHttpClient extends BasicConfig {
         cookies = response.getCookies();
     }
 
-    protected Response getWithCookie(String uri)
+    protected Response httpGetWithCookie(String uri)
             throws InterruptedException, java.util.concurrent.ExecutionException,
                    java.util.concurrent.TimeoutException {
         final ListenableFuture<Response> futureResponse = httpClient.prepareGet(uri)
